@@ -5,9 +5,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import it.polito.tdp.PremierLeague.model.Action;
+import it.polito.tdp.PremierLeague.model.Adiacenza;
 import it.polito.tdp.PremierLeague.model.Player;
 
 public class PremierLeagueDAO {
@@ -59,4 +62,59 @@ public class PremierLeagueDAO {
 			return null;
 		}
 	}
+	
+	public void getVertici(double x, Map<Integer,Player>idMap) {
+		String sql = "SELECT p.playerId AS id, p.Name AS Name " + 
+				"FROM actions a , players p " + 
+				"WHERE a.PlayerID = p.PlayerID " + 
+				"GROUP BY id, NAME " + 
+				"HAVING AVG (a.Goals) > ? " ;
+			Connection conn = DBConnect.getConnection();
+			
+			try {
+				PreparedStatement st = conn.prepareStatement(sql);
+				st.setDouble(1, x);
+				ResultSet res = st.executeQuery();
+				while (res.next()) {
+					if(!idMap.containsKey(res.getInt("id"))) {
+						Player player = new Player(res.getInt("id"), res.getString("name"));
+						idMap.put(player.getPlayerID(), player);
+					}
+				}
+				conn.close();
+				
+			}catch (SQLException e) {
+				e.printStackTrace();
+				
+	}
+  }
+	
+	public List<Adiacenza> getAdiacenze(Map<Integer,Player>idMap){
+		String sql = "SELECT a1.playerId AS p1, a2.PlayerID AS p2, (SUM(a1.TimePlayed) - SUM(a2.TimePlayed)) AS peso " + 
+				"FROM actions a1, actions a2 " + 
+				"WHERE a1.PlayerID > a2.PlayerID " + 
+				"AND a1.MatchID = a2.MatchID " + 
+				"AND a1.TeamID != a2.TeamID " + 
+				"AND a1.Starts = 1 AND a2.Starts = 1 " + 
+				"GROUP BY a1.PlayerId, a2.PlayerId ";
+		
+		List<Adiacenza> result= new ArrayList<Adiacenza>();
+		Connection conn = DBConnect.getConnection();
+		
+		try {
+			PreparedStatement st = conn.prepareStatement(sql);
+			ResultSet res = st.executeQuery();
+			
+			while(res.next()) {
+				if(idMap.containsKey(res.getInt("p1")) && idMap.containsKey(res.getInt("p2"))) {
+					result.add(new Adiacenza(idMap.get(res.getInt("p1")), idMap.get(res.getInt("p2")), res.getInt("peso")));
+				}
+			}
+			conn.close();
+			return result;
+		}catch(SQLException e) {
+			e.printStackTrace();
+		  return null;
+	}
+}
 }
